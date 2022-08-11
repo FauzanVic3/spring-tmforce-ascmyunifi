@@ -9,7 +9,30 @@
         <project.build.sourceEncoding>UTF-8</project.build.sourceEncoding>
         <maven.compiler.source>1.8</maven.compiler.source>
         <maven.compiler.target>1.8</maven.compiler.target>
+        <nexus.baseUrl>http://10.44.11.108</nexus.baseUrl>
     </properties>
+    <repositories>
+        <repository>
+            <id>nexus-central</id>
+            <name>nexus@tmforce.tmrnd.com.my</name>
+            <url>${nexus.baseUrl}/repository/maven-central/</url>
+        </repository>
+        <repository>
+            <id>nexus-releases</id>
+            <name>nexus@tmforce.tmrnd.com.my</name>
+            <url>${nexus.baseUrl}/repository/maven-releases/</url>
+        </repository>
+        <repository>
+            <id>nexus-staging</id>
+            <name>nexus@tmforce.tmrnd.com.my</name>
+            <url>${nexus.baseUrl}/repository/maven-staging/</url>
+        </repository>
+        <repository>
+            <id>nexus-snapshot</id>
+            <name>nexus@tmforce.tmrnd.com.my</name>
+            <url>${nexus.baseUrl}/repository/maven-snapshots/</url>
+        </repository>
+    </repositories>
     <parent>
         <groupId>org.springframework.boot</groupId>
         <artifactId>spring-boot-starter-parent</artifactId>
