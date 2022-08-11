@@ -1,0 +1,105 @@
+# Deployment Script for FORCE Java Library and Application
+# Last update : 28/01/2022
+# Updated by : Alam (abdulsalam@tmrnd.com.my)
+# --------------------------------------------
+variables:
+  # 'true' to append date '-YYYYMMDD' to version, 'false' to disable
+  VERSION_APPEND_DATE: 'false'
+  # either actual or wildcard path (will be automatically resolved to actual name after build)
+  ARTIFACT_PATH: target/*.*ar
+  INFO_PATH: "src/main/resources/info"
+
+
+stages:
+  - build
+  - upload_nexus
+
+# Build and compilation
+.build_template: &build_template
+  stage: build
+  script:
+    - MAVEN_OPTS="$MAVEN_OPTS -Dorg.slf4j.simpleLogger.defaultLogLevel=info"
+    - BUILD_TIME=$(date +"%F-%H-%M-%S")
+    - APP_BRANCH=$CI_COMMIT_BRANCH
+    - if [[ ! -d "src/main/resources/" ]]; then mkdir src/main/resources; fi
+    - if [[ ! -d $INFO_PATH ]]; then mkdir $INFO_PATH; fi
+    - echo "Artifact Id = "$ARTIFACT_ID > $INFO_PATH/version.txt
+    - echo "Version = "$VERSION >> $INFO_PATH/version.txt
+    - echo -e "Branch = "$APP_BRANCH >> $INFO_PATH/version.txt
+    - echo "Build Time = "$BUILD_TIME >> $INFO_PATH/version.txt
+    - echo "Build Machine = "$(hostname) >> $INFO_PATH/version.txt
+    - echo "Last Commit =" >> $INFO_PATH/version.txt
+    - echo "************************************************" >> $INFO_PATH/version.txt
+    - git log -1 >> $INFO_PATH/version.txt
+    - echo "************************************************" >> $INFO_PATH/version.txt
+    - cp pom.xml $INFO_PATH
+    - mvn dependency:purge-local-repository clean package -B -U
+  artifacts:
+    expire_in: 4 hrs
+    paths:
+    - $ARTIFACT_PATH
+
+build_release:
+  <<: *build_template
+  only:
+    - master
+  before_script:
+    - export VERSION=$(mvn -q -Dexec.executable="echo" -Dexec.args='${project.version}' --non-recursive exec:exec)
+    - export GROUP_ID=$(mvn -q -Dexec.executable="echo" -Dexec.args='${project.groupId}' --non-recursive exec:exec)
+    - export ARTIFACT_ID=$(mvn -q -Dexec.executable="echo" -Dexec.args='${project.artifactId}' --non-recursive exec:exec)
+    - if [[ $VERSION == *"-STAGING" ]]; then echo "STAGING NOT ALLOWED!!! version:"$VERSION ; exit 1 ; fi
+    - if [[ $VERSION == *"-SNAPSHOT" ]]; then "SNAPSHOT NOT ALLOWED!!! version:"$VERSION ; exit 1 ; fi
+
+build_staging:
+  <<: *build_template
+  only:
+    - staging
+  before_script:
+    - export VERSION=$(mvn -q -Dexec.executable="echo" -Dexec.args='${project.version}' --non-recursive exec:exec)
+    - export GROUP_ID=$(mvn -q -Dexec.executable="echo" -Dexec.args='${project.groupId}' --non-recursive exec:exec)
+    - export ARTIFACT_ID=$(mvn -q -Dexec.executable="echo" -Dexec.args='${project.artifactId}' --non-recursive exec:exec)
+    - if [[ $VERSION == *"-STAGING" ]]; then echo "Version:"$VERSION ; else echo "Not STAGING version:"$VERSION ; exit 1 ; fi
+
+build_snapshot:
+  <<: *build_template
+  only:
+    - development
+  before_script:
+    - export VERSION=$(mvn -q -Dexec.executable="echo" -Dexec.args='${project.version}' --non-recursive exec:exec)
+    - export GROUP_ID=$(mvn -q -Dexec.executable="echo" -Dexec.args='${project.groupId}' --non-recursive exec:exec)
+    - export ARTIFACT_ID=$(mvn -q -Dexec.executable="echo" -Dexec.args='${project.artifactId}' --non-recursive exec:exec)
+    - if [[ $VERSION == *"-SNAPSHOT" ]]; then echo "Version:"$VERSION ; else echo "Not SNAPSHOT version:"$VERSION ; exit 1 ; fi
+
+# Artifact uploading
+.upload_template: &upload_template
+  stage: upload_nexus
+  script:
+    - VERSION=$(mvn -q -Dexec.executable="echo" -Dexec.args='${project.version}' --non-recursive exec:exec)
+    - GROUP_ID=$(mvn -q -Dexec.executable="echo" -Dexec.args='${project.groupId}' --non-recursive exec:exec)
+    - ARTIFACT_ID=$(mvn -q -Dexec.executable="echo" -Dexec.args='${project.artifactId}' --non-recursive exec:exec)
+    - ARTIFACT_PATH=$(ls -1t $ARTIFACT_PATH | head -1)
+    - if [[ "$VERSION_APPEND_DATE" = "true" ]]; then VERSION="${VERSION}-$(date +%Y%m%d)" ; fi
+    - PACKAGING=${ARTIFACT_PATH##*.}
+    - mvn deploy:deploy-file --settings deploy.settings.xml -DpomFile=pom.xml -Dfile=$ARTIFACT_PATH -Dpackaging=$PACKAGING -Dversion=$VERSION -DrepositoryId=$REPO_ID -Durl=$REPO_URL
+    - "echo; echo 'The package has been successfully uploaded to repository as below:'; echo REPO: $REPO_URL; echo GROUP_ID: $GROUP_ID; echo ARTIFACT_ID: $ARTIFACT_ID; echo VERSION: $VERSION; echo PACKAGING: $PACKAGING; echo ARTIFACT_PATH: $ARTIFACT_PATH"
+
+push_releases:
+  <<: *upload_template
+  only:
+    - master
+  before_script:
+    - export REPO_ID=repo.releases && export REPO_URL=$REPO_RELEASES_URL
+
+push_staging:
+  <<: *upload_template
+  only:
+    - staging
+  before_script:
+    - export REPO_ID=repo.staging && export REPO_URL=$REPO_STAGING_URL
+
+push_snapshot:
+  <<: *upload_template
+  only:
+    - development
+  before_script:
+    - export REPO_ID=repo.snapshot && export REPO_URL=$REPO_SNAPSHOT_URL
