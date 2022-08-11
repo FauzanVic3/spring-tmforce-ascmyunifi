@@ -1,0 +1,19 @@
+spring:
+    main:
+       banner-mode: log
+# spring.banner.location: C:/Users/C00311/FORCE/force-eai-master/banner.txt
+server:
+    port:
+        8060
+    servlet:
+      context-path:
+        /api
+
+logging:
+    config:
+         logback-spring.xml
+
+cxf:
+  jaxrs:
+    component-scan: true
+    classes-scan-packages: org.apache.cxf.jaxrs.swagger
