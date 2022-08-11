@@ -248,5 +248,26 @@ public class utilities {
 
         return response;
     }
+    
+    public static String checkTTOrder (String request) {
+    
+        String flag = null;
+        
+        if(request != null && !request.isEmpty()){
+        
+            if(request.contains("OrderNumber")){
+                flag = "ORDER";
+            }
+            if(request.contains("TTNumber")){
+                flag = "TT";
+            }
+            if(request.contains("OrderNumber") &&
+                    request.contains("TTNumber")){
+                flag = null;
+            }
+        }
+        
+        return flag;
+    }
 
 }
